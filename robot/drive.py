@@ -3,7 +3,7 @@ import time
 import json
 import asyncio
 from datetime import datetime
-from picamera import PiCamera
+from picamera import PiCamera  #pylint: disable = import-error
 from gps import gps, WATCH_ENABLE, WATCH_NEWSTYLE
 from sphero_sdk import SpheroRvrAsync
 from sphero_sdk import SerialAsyncDal
@@ -11,7 +11,7 @@ from sphero_sdk import BatteryVoltageStatesEnum as VoltageStates
 from sphero_sdk import DriveFlagsBitmask
 
 
-async def battery(rvr):
+async def battery(rvr: SpheroRvrAsync) -> None:
     battery_percentage = await rvr.get_battery_percentage()
     print('Battery percentage: ', battery_percentage)
 
@@ -26,7 +26,7 @@ async def battery(rvr):
     print('Voltage states: ', state_info)
 
 
-async def drive(rvr, speed, heading):
+async def drive(rvr: SpheroRvrAsync, frame: int, speed: int, heading:int) -> None:
     await rvr.drive_with_heading(
         speed=speed,  # Valid speed values are 0-255
         heading=heading,  # Valid heading values are 0-359
@@ -39,9 +39,16 @@ async def drive(rvr, speed, heading):
         flags=DriveFlagsBitmask.drive_reverse.value
     )
     await asyncio.sleep(1)
+    command = {
+        "heading": heading,
+        "speed": speed,
+        "duration": 1
+    }
+    with open(f"data/command-{frame:04}.json", "w") as file:
+        json.dump(command, file)
 
 
-async def turn(rvr, heading):
+async def turn(rvr: SpheroRvrAsync, heading: int):
     await rvr.drive_with_heading(
         speed=0,  # Valid speed values are 0-255
         heading=heading,  # Valid heading values are 0-359
@@ -50,11 +57,11 @@ async def turn(rvr, heading):
     await asyncio.sleep(1)
 
 
-def snapshot(camera, frame, prefix="cam"):
+def snapshot(camera: PiCamera, frame: int, prefix="cam") -> None:
     camera.capture(f"data/{prefix}-{frame:04}.jpg")
 
 
-async def position(gpsd, frame):
+async def position(gpsd: gps, frame: int) -> None:
     # Drain the serial line
     while gpsd.waiting():
         gpsd.next()
@@ -80,7 +87,7 @@ async def position(gpsd, frame):
     return report
 
 
-def parseTurn(turn):
+def parseTurn(turn: str) -> int:
     if turn[0:4] == "turn":
         if len(turn) == 4:
             return 45
@@ -92,7 +99,7 @@ def parseTurn(turn):
     return 0
 
 
-def parseSpeed(speed):
+def parseSpeed(speed: str) -> int:
     if speed[0:5] == "speed":
         if len(speed) == 5:
             return 128
@@ -104,7 +111,7 @@ def parseSpeed(speed):
     return 0
 
 
-def normalizeHeading(heading):
+def normalizeHeading(heading: int) -> int:
     while heading < 0:
         heading += 360
     while heading >= 360:
@@ -112,16 +119,15 @@ def normalizeHeading(heading):
     return heading
 
 
-async def altShots(rvr, camera, heading, frame):
+async def altShots(rvr: SpheroRvrAsync, camera: PiCamera, heading: int, frame: int) -> None:
     for delta in [-30, -20, -10, 10, 20, 30]:
         newheading = normalizeHeading(heading+delta)
-        print("New Heading", newheading)
         await turn(rvr, newheading)
         snapshot(camera, frame, "neg"+str(delta))
     await turn(rvr, heading)
 
 
-async def main(rvr):
+async def main(rvr: SpheroRvrAsync) -> None:
     await rvr.wake()
     camera = PiCamera(resolution=(1280, 720), framerate=30)
     await rvr.reset_yaw()
@@ -138,7 +144,7 @@ async def main(rvr):
         elif cmd == "p" or cmd == "picture":
             snapshot(camera, frame)
         elif cmd == "d" or cmd == "drive":
-            await drive(rvr, speed, heading)
+            await drive(rvr, frame, speed, heading)
         elif cmd[0] == "s":
             try:
                 speed = parseSpeed(cmd)
@@ -156,9 +162,9 @@ async def main(rvr):
         elif cmd == "n" or cmd == "next":
             frame += 1
             snapshot(camera, frame)
-            await position(gpsd, frame)
-            await drive(rvr, speed, heading)
             await altShots(rvr, camera, heading, frame)
+            await position(gpsd, frame)
+            await drive(rvr, frame, speed, heading)
         elif cmd == "q" or cmd == "quit":
             run = False
         else:
@@ -176,7 +182,7 @@ async def main(rvr):
     await rvr.close()
 
 
-def mainloop():
+def mainloop() -> None:
     loop = asyncio.get_event_loop()
     rvr = SpheroRvrAsync(dal=SerialAsyncDal(loop))
 

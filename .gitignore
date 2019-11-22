@@ -1,6 +1,9 @@
 # Data Files
 data
 
+# vscode config
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
