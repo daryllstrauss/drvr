@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo Robot
+cd /home/pi/robot
+venv=/home/pi/.local/share/virtualenvs/pi-V9tpwFal
+echo VENV: $venv
+. $venv/bin/activate
+python drive.py
