@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 from keras.models import Model
@@ -5,19 +6,22 @@ from keras.layers import Dense, Dropout
 from keras.applications.inception_v3 import InceptionV3, preprocess_input
 import pandas as pd
 from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 
 CLASSES = 3
-WIDTH = 300
-HEIGHT = 169
-BATCH_SIZE = 64
-EPOCHS = 20
-STEPS_PER_EPOCH = 75
+# WIDTH = 300
+# HEIGHT = 169
+WIDTH = 299
+HEIGHT = 299
+BATCH_SIZE = 32
+EPOCHS = 100
+STEPS_PER_EPOCH = 40
 VALIDATION_STEPS = 7
 MODEL_FILE = 'stear.model'
 
 
-def buildModel(dropout: float = 0.4):
+def buildModelImagenet(dropout: float = 0.4):
     # setup model
     base_model = InceptionV3(
         weights='imagenet', include_top=False, pooling='avg')
@@ -36,7 +40,21 @@ def buildModel(dropout: float = 0.4):
     return model
 
 
-def loadData(dirname: str):
+def buildModel(dropout: float = 0.4):
+    # setup model
+    base_model = InceptionV3(pooling='avg', include_top=False)
+
+    x = Dropout(dropout)(base_model.output)
+    predictions = Dense(CLASSES, activation='softmax')(x)
+    model = Model(inputs=base_model.input, outputs=predictions)
+
+    model.compile(optimizer='rmsprop',
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
+
+
+def loadLabelledData(dirname: str) -> pd.DataFrame:
     with open(f"{dirname}/actions.json", "r") as fp:
         data = json.load(fp)
     for rec in data:
@@ -49,6 +67,24 @@ def loadData(dirname: str):
         else:
             rec['result'] = 'l'
     return pd.DataFrame(data)
+
+
+def loadData(dirname:str) -> pd.DataFrame:
+    result = []
+    files = os.listdir(dirname)
+    for f in files:
+        if f[-4:] == ".png" or f[-4:] == ".jpg":
+            if f[:3] == "cam":
+                action = 's'
+            elif f[:4] == "neg-":
+                action = 'r'
+            else:
+                action = 'l'
+            result.append({
+                "orig": f"{dirname}/{f}",
+                "result": action
+            })
+    return pd.DataFrame(result)
 
 
 def train(model, dataset, split, savefile):
@@ -86,12 +122,16 @@ def train(model, dataset, split, savefile):
         subset='validation',
         classes=["l", "r", "s"])
 
+    filepath="weights-improvement-{epoch:02d}-{val_accuracy:.2f}.hdf5"
+    checkpoint = ModelCheckpoint(filepath, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
+    callbacks_list = [checkpoint]
     history = model.fit_generator(
         train_generator,
         epochs=EPOCHS,
         steps_per_epoch=STEPS_PER_EPOCH,
         validation_data=validation_generator,
-        validation_steps=VALIDATION_STEPS)
+        validation_steps=VALIDATION_STEPS,
+        callbacks=callbacks_list)
 
     if savefile is not None:
         model.save(savefile)

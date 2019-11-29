@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import json
@@ -7,7 +8,17 @@ from datetime import datetime
 from robot import Robot
 from web import server
 
+def create_data_dir():
+    now = datetime.now()
+    dir = "data-"+format(now, "%Y%m%d-%H%M%S")
+    try:
+        os.mkdir(dir)
+    except OSError:
+        pass
+    return dir
+
 async def main(robot: Robot) -> None:
+    await robot.snapshot()
     run = True
     print("Command [bpdstgnqh]: ")
     while run:
@@ -33,15 +44,18 @@ async def main(robot: Robot) -> None:
             await robot.turn(cmd)
         elif cmd == "g" or cmd == "gps":
             pos = await robot.position()
-            print(
-                pos.get('lat', 0.0), "\t",
-                pos.get('lon', 0.0), "\t",
-                pos.get('time', ''), "\t",
-                pos.get('alt', 'nan'), "\t",
-                pos.get('epv', 'nan'), "\t",
-                pos.get('ept', 'nan'), "\t",
-                pos.get('speed', 'nan'), "\t",
-                pos.get('climb', 'nan'), "\t")
+            if pos:
+                print(
+                    pos.get('lat', 0.0), "\t",
+                    pos.get('lon', 0.0), "\t",
+                    pos.get('time', ''), "\t",
+                    pos.get('alt', 'nan'), "\t",
+                    pos.get('epv', 'nan'), "\t",
+                    pos.get('ept', 'nan'), "\t",
+                    pos.get('speed', 'nan'), "\t",
+                    pos.get('climb', 'nan'), "\t")
+            else:
+                print(None)
         elif cmd == "n" or cmd == "next":
             await robot.next()
             await robot.drive()
@@ -66,7 +80,8 @@ async def main(robot: Robot) -> None:
 
 def mainloop() -> None:
     loop = asyncio.get_event_loop()
-    robot = Robot(loop)
+    datadir = create_data_dir()
+    robot = Robot(loop, datadir)
     loop.run_until_complete(robot.startup())
     loop.create_task(server(robot))
     try:

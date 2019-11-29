@@ -8,6 +8,7 @@ from sphero_sdk import BatteryVoltageStatesEnum as VoltageStates
 from sphero_sdk import DriveFlagsBitmask
 
 class Robot(object):
+    datadir = None
     rvr = None
     camera = None
     gps = None
@@ -16,7 +17,8 @@ class Robot(object):
     frame = 0
     duration = 1
 
-    def __init__(self, loop):
+    def __init__(self, loop: asyncio.AbstractEventLoop, datadir: str = "data"):
+        self.datadir = datadir
         self.rvr = SpheroRvrAsync(dal=SerialAsyncDal(loop))
         self.camera = PiCamera(resolution=(1280, 720), framerate=30)
         self.gps = gps(mode=WATCH_ENABLE | WATCH_NEWSTYLE)
@@ -41,29 +43,31 @@ class Robot(object):
         await self.rvr.drive_with_heading(
             speed=self.speed,
             heading=self.heading,
-            flags=DriveFlagsBitmask.drive_reverse.value
-        )
+            flags=DriveFlagsBitmask.drive_reverse.value)
         await asyncio.sleep(self.duration)
         await self.rvr.drive_with_heading(
             speed=0,
             heading=self.heading,
-            flags=DriveFlagsBitmask.drive_reverse.value
-        )
+            flags=DriveFlagsBitmask.drive_reverse.value)
         await asyncio.sleep(1)
         command = {
             "heading": self.heading,
             "speed": self.speed,
             "duration": self.duration
         }
-        with open(f"data/command-{self.frame:04}.json", "w") as file:
+        with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
             json.dump(command, file)
-
+        await self.rvr.drive_with_heading(
+            speed=0,
+            heading=self.heading,
+            flags=DriveFlagsBitmask.none.value)
+        await asyncio.sleep(1)
+    
     async def turnTo(self):
         await self.rvr.drive_with_heading(
             speed=0,
             heading=self.heading,
-            flags=DriveFlagsBitmask.none.value
-        )
+            flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(1)
     
     async def turn(self, cmd: str):
@@ -76,7 +80,7 @@ class Robot(object):
         await self.turnTo()
 
     async def snapshot(self, prefix="cam") -> None:
-        self.camera.capture(f"data/{prefix}-{self.frame:04}.jpg")
+        self.camera.capture(f"{self.datadir}/{prefix}-{self.frame:04}.png")
 
     async def position(self) -> None:
         # Drain the serial line
@@ -85,12 +89,12 @@ class Robot(object):
         count = 0
         while True:
             report = self.gps.next()
+            count += 1
+            if count == 10:
+                return None
             if report['class'] == "TPV" and 'lat' in report:
                 break
-            count += 1
-            if count == 100:
-                return None
-        with open(f"data/position-{self.frame:04}.json", "w") as file:
+        with open(f"{self.datadir}/position-{self.frame:04}.json", "w") as file:
             json.dump(dict(report), file)
         return dict(report)
 

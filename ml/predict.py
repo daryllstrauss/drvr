@@ -5,10 +5,13 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from keras.preprocessing import image
 from keras.models import load_model
+from keras.applications.inception_v3 import preprocess_input
 
 MODEL_FILE = 'stear.model'
-WIDTH = 300
-HEIGHT = 169
+# WIDTH = 300
+# HEIGHT = 169
+WIDTH = 299
+HEIGHT = 299
 
 
 def predict(model, img):
@@ -21,6 +24,7 @@ def predict(model, img):
     """
     x = image.img_to_array(img)
     x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
     preds = model.predict(x)
     return preds[0]
 
@@ -49,11 +53,17 @@ def testall(dirname: str) -> None:
     model = load_model(MODEL_FILE)
     files = os.listdir(dirname)
     for f in files:
-        if f[-4:] != ".jpg":
+        if f[-4:] != ".png":
             continue
         imagename = f"{dirname}/{f}"
         img = image.load_img(imagename, target_size=(HEIGHT, WIDTH))
         preds = predict(model, img)
+        if f[:3] == "cam":
+            correct = "  S"
+        elif f[:4] == "neg-":
+            correct = " R "
+        else:
+            correct = "L  "
         if preds[0] > preds[1]:
             if preds[0] > preds[2]:
                 prefix = "L  "
@@ -64,7 +74,11 @@ def testall(dirname: str) -> None:
                 prefix = " R "
             else:
                 prefix = "  S"
-        print(f"{prefix} {f} {preds[0]:0.3} {preds[1]:0.3} {preds[2]:0.3}")
+        if prefix == correct:
+            tag = " "
+        else:
+            tag = "*"
+        print(f"{tag} {prefix} {f} {preds[0]:0.3} {preds[1]:0.3} {preds[2]:0.3}")
 
 
 def main(imagename: str) -> None:

@@ -21,7 +21,7 @@ def trainDir(dirname: str) -> None:
     recs = []
     for name in os.listdir(dirname):
         inname = f"{dirname}/{name}"
-        if isfile(inname) and inname[-4:] == ".jpg":
+        if isfile(inname) and inname[-4:] == ".png":
             outname = f"{dirname}/out-{count:04}.png"
             action = tagOne(inname, outname)
             count = count + 1

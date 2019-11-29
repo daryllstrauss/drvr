@@ -9,7 +9,12 @@ async def handle(request):
     robot = request.app['robot']
     bat = await robot.battery()
     pos = await robot.position()
-    return {"frame": robot.frame, "battery": bat, "position": pos}
+    result = {
+        "directory": robot.datadir,
+        "frame": robot.frame,
+        "battery": bat,
+        "position": pos}
+    return result
 
 async def battery(request):
     robot = request.app['robot']
@@ -39,17 +44,22 @@ async def position(request):
 
 async def image(request):
     robot = request.app['robot']
-    last = f"data/cam-{robot.frame:04}.jpg"
-    with open(last, "rb") as f:
-        body = f.read()
-    resp = web.Response(body=body, content_type="image/jpg")
-    return resp
+    last = f"{robot.datadir}/cam-{robot.frame:04}.png"
+    try:
+        with open(last, "rb") as f:
+            body = f.read()
+        resp = web.Response(body=body, content_type="image/png")
+        return resp
+    except Exception:
+        return web.Response()
 
 async def halt(request):
     os.system("sudo halt")
+    return web.HTTPFound('/')
 
 async def reboot(request):
     os.system("sudo reboot")
+    return web.HTTPFound('/')
 
 async def server(robot: Robot):
     app = web.Application()
@@ -62,7 +72,7 @@ async def server(robot: Robot):
         web.post('/next', next),
         web.post('/position', position),
         web.post('/halt', halt),
-        web.post('/reboot', reboot)
+        web.post('/reboot', reboot),
     ])
     lookup = aiohttp_mako.setup(
         app, 

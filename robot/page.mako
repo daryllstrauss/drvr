@@ -6,6 +6,7 @@
     <body>
         <h1>DRVR</h1>
         <div>
+            ${directory}<br>
             ${frame}<br>
             ${battery}<br>
             ${position}<br>
@@ -27,7 +28,7 @@
             </form>
         </div>
         <div style="height:300px">
-            <img src="/image" style="height:300px;transform:rotate(-90deg);padding-top:300px">
+            <img src="/image" style="height:300px;transform:rotate(180deg)">
         </div>
     </body>
 </html>
