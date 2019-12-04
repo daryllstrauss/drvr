@@ -1,48 +1,36 @@
 import os
 import sys
 import json
-from keras.models import Model
-from keras.layers import Dense, Dropout
-from keras.applications.inception_v3 import InceptionV3, preprocess_input
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input as inception_preprocess
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mobilenet_preprocess
 import pandas as pd
-from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import ModelCheckpoint
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 
 CLASSES = 3
-# WIDTH = 300
-# HEIGHT = 169
 WIDTH = 299
 HEIGHT = 299
 BATCH_SIZE = 32
 EPOCHS = 100
-STEPS_PER_EPOCH = 40
-VALIDATION_STEPS = 7
-MODEL_FILE = 'stear.model'
+STEPS_PER_EPOCH = 100
+VALIDATION_STEPS = 10
+MODEL_FILE = 'steer.model'
 
 
-def buildModelImagenet(dropout: float = 0.4):
-    # setup model
-    base_model = InceptionV3(
-        weights='imagenet', include_top=False, pooling='avg')
+def buildModel(modelFile: str = None, dropout: float = 0.4):
+    if modelFile:
+        model = load_model(modelFile)
+    else:
+        # # setup model
+        # base_model = InceptionV3(weights='imagenet', pooling='avg', include_top=False)
+        # # transfer learning
+        # for layer in base_model.layers:
+        #     layer.trainable = False
+        base_model = InceptionV3(pooling='avg', include_top=False)
 
-    x = Dropout(dropout)(base_model.output)
-    predictions = Dense(CLASSES, activation='softmax')(x)
-    model = Model(inputs=base_model.input, outputs=predictions)
-
-    # transfer learning
-    for layer in base_model.layers:
-        layer.trainable = False
-
-    model.compile(optimizer='rmsprop',
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-    return model
-
-
-def buildModel(dropout: float = 0.4):
-    # setup model
-    base_model = InceptionV3(pooling='avg', include_top=False)
 
     x = Dropout(dropout)(base_model.output)
     predictions = Dense(CLASSES, activation='softmax')(x)
@@ -64,37 +52,41 @@ def loadLabelledData(dirname: str) -> pd.DataFrame:
             rec['result'] = 's'
         elif filename[:4] == "neg-":
             rec['result'] = 'r'
-        else:
+        elif filename[:3] == "neg":
             rec['result'] = 'l'
+        else:
+            continue
     return pd.DataFrame(data)
 
 
-def loadData(dirname:str) -> pd.DataFrame:
+def loadData(dirnames:[str]) -> pd.DataFrame:
     result = []
-    files = os.listdir(dirname)
-    for f in files:
-        if f[-4:] == ".png" or f[-4:] == ".jpg":
-            if f[:3] == "cam":
-                action = 's'
-            elif f[:4] == "neg-":
-                action = 'r'
-            else:
-                action = 'l'
-            result.append({
-                "orig": f"{dirname}/{f}",
-                "result": action
-            })
+    for d in dirnames:
+        files = os.listdir(d)
+        for f in files:
+            if f[-4:] == ".png" or f[-4:] == ".jpg":
+                if f[:3] == "cam":
+                    action = 's'
+                elif f[:4] == "neg-":
+                    action = 'r'
+                elif f[:3] == "neg":
+                    action = 'l'
+                else:
+                    continue
+                result.append({
+                    "orig": f"{d}/{f}",
+                    "result": action
+                })
     return pd.DataFrame(result)
 
 
 def train(model, dataset, split, savefile):
     datagen = ImageDataGenerator(
-        preprocessing_function=preprocess_input,
-        rotation_range=5,
-        width_shift_range=0.2,
-        height_shift_range=0.2,
-        zoom_range=0.2,
-        # horizontal_flip=False,
+        # width_shift_range=0.1,
+        # height_shift_range=0.1,
+        brightness_range=(0.8, 1.2),
+        channel_shift_range=0.1,
+        preprocessing_function=inception_preprocess,
         validation_split=split,
         fill_mode='nearest')
 
@@ -122,8 +114,8 @@ def train(model, dataset, split, savefile):
         subset='validation',
         classes=["l", "r", "s"])
 
-    filepath="weights-improvement-{epoch:02d}-{val_accuracy:.2f}.hdf5"
-    checkpoint = ModelCheckpoint(filepath, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
+    filepath="iteration-{epoch:02d}-{val_loss:.2f}-{val_acc:.2f}.hdf5"
+    checkpoint = ModelCheckpoint(filepath, monitor='val_loss', save_best_only=True, mode='min')
     callbacks_list = [checkpoint]
     history = model.fit_generator(
         train_generator,
@@ -141,13 +133,13 @@ def train(model, dataset, split, savefile):
 
 def plot_training(history):
     acc = history.history['accuracy']
-    val_acc = history.history['val_accuracy']
+    val_acc = history.history['val_acc']
     loss = history.history['loss']
     val_loss = history.history['val_loss']
     epochs = range(len(acc))
 
     plt.plot(epochs, acc, 'r.', label='accuracy')
-    plt.plot(epochs, val_acc, 'r', label='val_accuracy')
+    plt.plot(epochs, val_acc, 'r', label='val_acc')
     plt.title('Training and validation accuracy')
     plt.legend()
 
@@ -159,14 +151,13 @@ def plot_training(history):
     plt.show()
 
 
-def main(datadir: str) -> None:
-    model = buildModel(dropout=0.3)
-    # (trainData, testData) = splitData(datadir)
-    # history = train(model, trainData, testData, MODEL_FILE)
-    data = loadData(datadir)
+def main(datadirs: [str]) -> None:
+    # model = buildModel(modelFile="good/weights-improvement-53-0.93.hdf5")
+    model = buildModel(dropout=0.5)
+    data = loadData(datadirs)
     history = train(model, data, 0.2, MODEL_FILE)
-    plot_training(history)
+    # plot_training(history)
 
 
 if __name__ == '__main__':
-    main(sys.argv[-1])
+    main(sys.argv[1:])

@@ -13,7 +13,8 @@ async def handle(request):
         "directory": robot.datadir,
         "frame": robot.frame,
         "battery": bat,
-        "position": pos}
+        "position": pos,
+        "predictions": robot.predictions}
     return result
 
 async def battery(request):
@@ -26,15 +27,13 @@ async def turn(request):
     data = await request.post()
     amount = data['amount']
     await robot.turn("t"+amount)
+    await robot.predict()
     return web.HTTPFound('/')
 
 async def next(request):
     robot = request.app['robot']
     await robot.next()
-    await robot.drive()
-    await robot.snapshot()
-    await robot.altShots()
-    await robot.position()
+    await robot.predict()
     return web.HTTPFound('/')
 
 async def position(request):
@@ -44,14 +43,35 @@ async def position(request):
 
 async def image(request):
     robot = request.app['robot']
-    last = f"{robot.datadir}/cam-{robot.frame:04}.png"
+    last = f"{robot.datadir}/cur.jpg"
     try:
         with open(last, "rb") as f:
             body = f.read()
-        resp = web.Response(body=body, content_type="image/png")
+        headers = {
+            "Cache-Control": "no-cache"
+        }
+        resp = web.Response(body=body, content_type="image/jpeg", headers=headers)
         return resp
     except Exception:
         return web.Response()
+
+async def act(request):
+    robot = request.app['robot']
+    await robot.act()
+    return web.HTTPFound('/')
+
+async def correct(request):
+    robot = request.app['robot']
+    data = await request.post()
+    direction = data['direction']
+    if direction == "left":
+        await robot.snapshot("negcorrect")
+        await robot.turn("t-5")
+    else:
+        await robot.snapshot("neg-correct")
+        await robot.turn("t5")
+    await robot.predict()
+    return web.HTTPFound('/')
 
 async def halt(request):
     os.system("sudo halt")
@@ -71,8 +91,10 @@ async def server(robot: Robot):
         web.post('/turn', turn),
         web.post('/next', next),
         web.post('/position', position),
+        web.post('/correct', correct),
+        web.post('/act', act),
         web.post('/halt', halt),
-        web.post('/reboot', reboot),
+        web.post('/reboot', reboot)
     ])
     lookup = aiohttp_mako.setup(
         app, 

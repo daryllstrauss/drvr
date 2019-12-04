@@ -18,7 +18,7 @@ def create_data_dir():
     return dir
 
 async def main(robot: Robot) -> None:
-    await robot.snapshot()
+    await robot.predict()
     run = True
     print("Command [bpdstgnqh]: ")
     while run:
@@ -58,10 +58,6 @@ async def main(robot: Robot) -> None:
                 print(None)
         elif cmd == "n" or cmd == "next":
             await robot.next()
-            await robot.drive()
-            await robot.snapshot()
-            await robot.altShots()
-            await robot.position()
         elif cmd == "q" or cmd == "quit":
             run = False
         else:
