@@ -5,7 +5,7 @@ import tensorflow as tf
 
 def convert(inputName:str, outputName:str):
     model = load_model(inputName)
-    newInput = Input(batch_shape=(None, 299, 299, 3))
+    newInput = Input(batch_shape=(None, 224, 224, 3))
     newOutput = model(newInput)
     newModel = Model(newInput, newOutput)
     converter = tf.lite.TFLiteConverter.from_keras_model(newModel)

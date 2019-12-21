@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo Robot
+echo DRVR
 cd /home/pi/robot
 venv=/home/pi/.local/share/virtualenvs/pi-V9tpwFal
 echo VENV: $venv

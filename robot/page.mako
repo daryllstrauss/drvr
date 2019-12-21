@@ -38,7 +38,7 @@
             </form>
         </div>
         <div style="height:300px">
-            <img src="/image" style="height:300px;transform:rotate(180deg)">
+            <img src="/image" style="width:100%;transform:rotate(180deg)">
         </div>
     </body>
 </html>

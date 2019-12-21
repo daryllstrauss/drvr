@@ -1,16 +1,17 @@
 import os
 import asyncio
 import json
-from picamera import PiCamera  #pylint: disable = import-error
+import io
+from picamera import PiCamera  # pylint: disable = import-error
 from gps import gps, WATCH_ENABLE, WATCH_NEWSTYLE
 from sphero_sdk import SpheroRvrAsync
 from sphero_sdk import SerialAsyncDal
-from sphero_sdk import BatteryVoltageStatesEnum as VoltageStates
 from sphero_sdk import DriveFlagsBitmask
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.inception_v3 import preprocess_input
+
 
 class Robot(object):
     datadir = None
@@ -23,8 +24,10 @@ class Robot(object):
     duration = 1
     interp = None
     predictions = None
-    image_width = 299
-    image_height = 299
+    # image_width = 299
+    # image_height = 299
+    image_width = 224
+    image_height = 224
 
     def __init__(self, loop: asyncio.AbstractEventLoop, datadir: str = "data"):
         self.datadir = datadir
@@ -62,11 +65,6 @@ class Robot(object):
         await self.rvr.drive_with_heading(
             speed=0,
             heading=self.heading,
-            flags=DriveFlagsBitmask.drive_reverse.value)
-        await asyncio.sleep(1)
-        await self.rvr.drive_with_heading(
-            speed=0,
-            heading=self.heading,
             flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(0.25)
         command = {
@@ -76,14 +74,14 @@ class Robot(object):
         }
         with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
             json.dump(command, file)
-    
+
     async def turnTo(self):
         await self.rvr.drive_with_heading(
             speed=0,
             heading=self.heading,
             flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(0.25)
-    
+
     async def turn(self, cmd: str):
         try:
             delta = self.parseTurn(cmd)
@@ -103,13 +101,15 @@ class Robot(object):
         await self.altShots()
         await self.position()
         await self.drive()
-    
+
     async def predict(self) -> None:
         if self.interp is None:
             return
-        await self.snapshot("cur")
-        imagename = f"{self.datadir}/cur-{self.frame:04}.jpg"
-        img = image.load_img(imagename, target_size=(self.image_height, self.image_width))
+        imgdata = io.BytesIO()
+        self.camera.capture(imgdata, 'png')
+        img = image.load_img(
+            imgdata,
+            target_size=(self.image_height, self.image_width))
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)
         x = preprocess_input(x)
@@ -119,12 +119,11 @@ class Robot(object):
         self.interp.invoke()
         result = self.interp.get_tensor(output_details[0]['index'])
         self.predictions = result[0].tolist()
-        os.rename(imagename, f"{self.datadir}/cur.jpg")
-    
-    async def act(self) -> None:
+
+    async def act(self, photos=True, predict=True) -> None:
         max = 0
         best = -1
-        for i in range(0,3):
+        for i in range(0, 3):
             if self.predictions[i] > max:
                 max = self.predictions[i]
                 best = i
@@ -133,16 +132,25 @@ class Robot(object):
         elif best == 1:
             await self.turn("t5")
         else:
-            await self.next()
-        await self.predict()
-    
+            if photos:
+                await self.next()
+            else:
+                await self.nextFrame()
+                # await self.position()
+                await self.drive()
+        if predict:
+            await self.predict()
+
     async def report(self):
         return self.gps.next()
 
     async def position(self) -> None:
         # Drain the serial line
         while self.gps.waiting():
-            report = self.gps.next()
+            try:
+                report = await asyncio.wait_for(self.report(), timeout=5.0)
+            except asyncio.TimeoutError:
+                return None
         count = 0
         while True:
             try:
@@ -180,7 +188,7 @@ class Robot(object):
                 return 128
             return int(speed[1:])
         return 0
-    
+
     async def setSpeed(self, speed: str):
         try:
             self.speed = self.parseSpeed(speed)

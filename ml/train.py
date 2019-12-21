@@ -11,8 +11,10 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 
 CLASSES = 3
-WIDTH = 299
-HEIGHT = 299
+# WIDTH = 299
+# HEIGHT = 299
+WIDTH = 224
+HEIGHT = 224
 BATCH_SIZE = 32
 EPOCHS = 100
 STEPS_PER_EPOCH = 100
@@ -29,7 +31,8 @@ def buildModel(modelFile: str = None, dropout: float = 0.4):
         # # transfer learning
         # for layer in base_model.layers:
         #     layer.trainable = False
-        base_model = InceptionV3(pooling='avg', include_top=False)
+        # base_model = InceptionV3(pooling='avg', include_top=False)
+        base_model = MobileNetV2(weights=None, pooling='avg', include_top=False)
 
 
     x = Dropout(dropout)(base_model.output)
@@ -153,7 +156,7 @@ def plot_training(history):
 
 def main(datadirs: [str]) -> None:
     # model = buildModel(modelFile="good/weights-improvement-53-0.93.hdf5")
-    model = buildModel(dropout=0.5)
+    model = buildModel(dropout=0.4)
     data = loadData(datadirs)
     history = train(model, data, 0.2, MODEL_FILE)
     # plot_training(history)
