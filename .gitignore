@@ -1,6 +1,9 @@
 # Data Files
 data
 
+# Skip Node Modules
+node_modules/
+
 # vscode config
 .vscode
 
