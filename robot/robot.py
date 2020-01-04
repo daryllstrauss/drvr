@@ -28,23 +28,35 @@ class Robot(object):
     # image_height = 299
     image_width = 224
     image_height = 224
+    busy = False
 
     def __init__(self, loop: asyncio.AbstractEventLoop, datadir: str = "data"):
         self.datadir = datadir
         self.rvr = SpheroRvrAsync(dal=SerialAsyncDal(loop))
         self.camera = PiCamera(resolution=(1280, 720), framerate=30)
         self.gps = gps(mode=WATCH_ENABLE | WATCH_NEWSTYLE)
+        self.busy = False
         try:
             self.interp = tf.lite.Interpreter("steer.tflite")
             self.interp.allocate_tensors()
         except Exception:
             pass
+    
+    async def setBusy(self):
+        while self.busy:
+            await asyncio.sleep(0.25)
+        self.busy = True
+    
+    def clearBusy(self):
+        self.busy = False
 
     async def startup(self):
+        await self.setBusy()
         await self.rvr.wake()
         await self.rvr.reset_yaw()
         await asyncio.sleep(1)
-
+        self.clearBusy()
+    
     async def shutdown(self):
         await self.rvr.close()
 
@@ -57,6 +69,7 @@ class Robot(object):
         return result
 
     async def drive(self) -> None:
+        await self.setBusy()
         await self.rvr.drive_with_heading(
             speed=self.speed,
             heading=self.heading,
@@ -74,13 +87,16 @@ class Robot(object):
         }
         with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
             json.dump(command, file)
+        self.clearBusy()
 
     async def turnTo(self):
+        await self.setBusy()
         await self.rvr.drive_with_heading(
             speed=0,
             heading=self.heading,
             flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(0.25)
+        self.clearBusy()
 
     async def turn(self, cmd: str):
         try:
@@ -92,8 +108,10 @@ class Robot(object):
         await self.turnTo()
 
     async def snapshot(self, prefix="cam") -> None:
+        await self.setBusy()
         path = f"{self.datadir}/{prefix}-{self.frame:04}.jpg"
         self.camera.capture(path)
+        self.clearBusy()
 
     async def next(self) -> None:
         await self.nextFrame()
@@ -105,6 +123,7 @@ class Robot(object):
     async def predict(self) -> None:
         if self.interp is None:
             return
+        await self.setBusy()
         imgdata = io.BytesIO()
         self.camera.capture(imgdata, 'png')
         img = image.load_img(
@@ -119,6 +138,7 @@ class Robot(object):
         self.interp.invoke()
         result = self.interp.get_tensor(output_details[0]['index'])
         self.predictions = result[0].tolist()
+        self.clearBusy()
 
     async def act(self, photos=True, predict=True) -> None:
         max = 0
