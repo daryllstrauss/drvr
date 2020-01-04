@@ -88,7 +88,10 @@ async def act(request):
 
 async def act_api(request):
     robot = request.app['robot']
-    await robot.act(False, False)
+    data = await request.json()
+    photos = data.get('photos', False)
+    predict = data.get('predict', False)
+    await robot.act(photos, predict)
     return web.Response()
 
 
