@@ -64,9 +64,16 @@
 
 .label {
   font-size: 24pt;
+  display: inline-block;
 }
 
 .value {
+  padding-left: 10px;
+  font-size: 24pt;
+  display: inline-block;
+}
+
+.buttons {
   font-size: 16pt;
 }
 

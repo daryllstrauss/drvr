@@ -9,13 +9,12 @@ import { RobotService } from './robot.service';
 })
 export class AppComponent implements OnInit {
     public battery = {};
-    private prevIndex: number = -1;
+    private prevIndex = -1;
     private prevPredictions: any = [0, 0, 0];
     public predictions: any = [0, 0, 0];
     public maxIndex = -1;
     public wait = true;
     private readonly delay = 0;
-    public timer = this.delay;
     public running = false;
     public command = '';
 
@@ -42,53 +41,39 @@ export class AppComponent implements OnInit {
       return index;
     }
 
-    predict() {
-      this.command = 'PREDICT';
-      this.robot.predict().subscribe(predictions => {
-        this.prevIndex = this.maxIndex;
-        this.prevPredictions = this.predictions;
-        this.predictions = predictions;
-        this.maxIndex = this.findMax(this.predictions);
-        this.commandDone();
-      });
-    }
-
     commandDone() {
       this.running = false;
       this.command = '';
-      this.timer = this.delay;
     }
 
     countdown() {
       if (this.wait || this.running) {
         return;
       }
-      this.timer -= 1;
-      if (this.timer === -1) {
-        this.running = true;
+      this.running = true;
+      this.updateBattery();
+      this.command = 'PREDICT';
+      this.robot.predict().subscribe(predictions => {
+        this.prevIndex = this.maxIndex;
+        this.prevPredictions = this.predictions;
+        this.predictions = predictions;
+        this.maxIndex = this.findMax(this.predictions);
         this.command = 'ACT';
-        console.log('Prev', this.prevIndex, 'Cur', this.maxIndex);
         if ((this.prevIndex === 0 && this.maxIndex === 1) ||
             (this.prevIndex === 1 && this.maxIndex === 0)) {
-          console.log('Flipping', this.prevPredictions[2], this.predictions[2]);
           if (this.prevPredictions[2] > this.predictions[2]) {
-            console.log('Straight');
-            this.running = true;
             this.command = 'OVERRIDE';
             this.robot.straight().subscribe(_ => {
               this.maxIndex = 2;
-              this.predict();
-              this.updateBattery();
               this.commandDone();
             });
             return;
           }
         }
         this.robot.act().subscribe(_ => {
-          this.predict();
-          this.updateBattery();
+          this.commandDone();
         });
-      }
+      });
     }
 
     stop() {
@@ -97,8 +82,6 @@ export class AppComponent implements OnInit {
 
     start() {
       this.wait = false;
-      this.running = true;
-      this.predict();
     }
 
     turn(degrees: number) {

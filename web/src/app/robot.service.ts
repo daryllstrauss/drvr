@@ -15,8 +15,8 @@ export class RobotService {
       return this.http.post('/api/predict', {})
     }
 
-    act() {
-      return this.http.post('/api/act', {})
+    act(args = {photos: false, predict: false}) {
+      return this.http.post('/api/act', args)
     }
 
     turn(degrees: number) {

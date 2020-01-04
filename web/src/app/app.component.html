@@ -11,23 +11,25 @@
   <div class="left" [ngClass]="maxIndex==0?'highlight':''">
     <div class="label">Left</div>
     <div class="value">{{predictions[0]*100 | number}}%</div>
-    <div class="symbol">🡄</div>
+    <br>
+    <div class="symbol"><img src="assets/left.svg" width="64"></div>
   </div>
   <div class="straight" [ngClass]="maxIndex==2?'highlight':''">
     <div class="label">Straight</div>
     <div class="value">{{predictions[2]*100 | number}}%</div>
-    <div class="symbol">🡅</div>
+    <br>
+    <div class="symbol"><img src="assets/up.svg" width="64"></div>
   </div>
   <div class="right" [ngClass]="maxIndex==1?'highlight':''">
     <div class="label">Right</div>
     <div class="value">{{predictions[1]*100 | number}}%</div>
-    <div class="symbol">🡆</div>
+    <br>
+    <div class="symbol"><img src="assets/right.svg" width="64"></div>
   </div>
 </div>
 WAIT {{wait}} RUNNING {{running}} COMMAND {{command}}<br>
-<div class="label">{{timer}}</div>
 <button (click)="stop()" [disabled]="wait">
-  <div class="label">⯃ STOP</div>
+  <div class="label"><img src="assets/octagon.svg" width="24"> STOP</div>
 </button>
 <div (click)="start()" *ngIf="wait && !running">
   <button>
@@ -36,18 +38,18 @@ WAIT {{wait}} RUNNING {{running}} COMMAND {{command}}<br>
   <br>
   <br>
   <button (click)="turn(-5)">
-    <div class="value">LEFT</div>
+    <div class="buttons">LEFT</div>
   </button>
   <button (click)="turn(5)">
-    <div class="value">RIGHT</div>
+    <div class="buttons">RIGHT</div>
   </button>
   <br>
   <button (click)="straight()">
-      <div class="value">STRAIGHT</div>
+      <div class="buttons">STRAIGHT</div>
     </button>
   <br>
   <br>
   <button (click)="halt()">
-    <div class="value">HALT</div>
+    <div class="buttons">HALT</div>
   </button>
 </div>
