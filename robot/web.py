@@ -49,6 +49,12 @@ async def straight_api(request):
     return web.Response()
 
 
+async def record_api(request):
+    robot = request.app['robot']
+    await robot.next()
+    return web.Response()
+
+
 async def next(request):
     robot = request.app['robot']
     await robot.next()
@@ -149,7 +155,8 @@ async def server(robot: Robot):
         web.post('/api/turn', turn_api),
         web.post('/api/straight', straight_api),
         web.post('/api/halt', halt_api),
-        web.static('/web', 'web')
+        web.post('/api/record', record_api),
+        web.static('/web', 'web', show_index=True)
     ])
     lookup = aiohttp_mako.setup(
         app,
@@ -164,4 +171,4 @@ async def server(robot: Robot):
     site = web.TCPSite(runner, '0.0.0.0', 8080)
     await site.start()
     while True:
-        await asyncio.sleep(0)
+        await asyncio.sleep(1)

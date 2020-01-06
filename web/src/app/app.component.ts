@@ -96,6 +96,12 @@ export class AppComponent implements OnInit {
       this.robot.straight().subscribe(_ => this.commandDone());
     }
 
+    record() {
+      this.running = true;
+      this.command = 'RECORD';
+      this.robot.record().subscribe(_ => this.commandDone());
+    }
+
     halt() {
       this.running = true;
       this.command = 'HALT';

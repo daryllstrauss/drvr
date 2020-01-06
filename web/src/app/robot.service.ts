@@ -8,15 +8,15 @@ export class RobotService {
     constructor(private http: HttpClient) { }
 
     battery() {
-      return this.http.get('/api/battery')
+      return this.http.get('/api/battery');
     }
 
     predict() {
-      return this.http.post('/api/predict', {})
+      return this.http.post('/api/predict', {});
     }
 
     act(args = {photos: false, predict: false}) {
-      return this.http.post('/api/act', args)
+      return this.http.post('/api/act', args);
     }
 
     turn(degrees: number) {
@@ -24,7 +24,11 @@ export class RobotService {
     }
 
     straight() {
-        return this.http.post('/api/straight', {})
+      return this.http.post('/api/straight', {});
+    }
+
+    record() {
+      return this.http.post('/api/record', {});
     }
 
     halt() {
