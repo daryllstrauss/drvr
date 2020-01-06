@@ -2,6 +2,7 @@ import os
 import asyncio
 import json
 import io
+from datetime import datetime
 from picamera import PiCamera  # pylint: disable = import-error
 from gps import gps, WATCH_ENABLE, WATCH_NEWSTYLE
 from sphero_sdk import SpheroRvrAsync
@@ -33,7 +34,7 @@ class Robot(object):
     def __init__(self, loop: asyncio.AbstractEventLoop, datadir: str = "data"):
         self.datadir = datadir
         self.rvr = SpheroRvrAsync(dal=SerialAsyncDal(loop))
-        self.camera = PiCamera(resolution=(1280, 720), framerate=30)
+        self.camera = PiCamera(resolution=(320, 240), framerate=30)
         self.gps = gps(mode=WATCH_ENABLE | WATCH_NEWSTYLE)
         self.busy = False
         try:
@@ -83,7 +84,8 @@ class Robot(object):
         command = {
             "heading": self.heading,
             "speed": self.speed,
-            "duration": self.duration
+            "duration": self.duration,
+            "predictions": self.predictions
         }
         with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
             json.dump(command, file)
@@ -110,11 +112,12 @@ class Robot(object):
     async def snapshot(self, prefix="cam") -> None:
         await self.setBusy()
         path = f"{self.datadir}/{prefix}-{self.frame:04}.jpg"
-        self.camera.capture(path)
+        self.camera.capture(path, 'jpeg', use_video_port=True)
         self.clearBusy()
 
     async def next(self) -> None:
         await self.nextFrame()
+        await self.predict()
         await self.snapshot()
         await self.altShots()
         await self.position()
@@ -125,7 +128,7 @@ class Robot(object):
             return
         await self.setBusy()
         imgdata = io.BytesIO()
-        self.camera.capture(imgdata, 'png')
+        self.camera.capture(imgdata, 'jpeg', use_video_port=True)
         img = image.load_img(
             imgdata,
             target_size=(self.image_height, self.image_width))
@@ -156,7 +159,7 @@ class Robot(object):
                 await self.next()
             else:
                 await self.nextFrame()
-                # await self.position()
+                await self.position()
                 await self.drive()
         if predict:
             await self.predict()
