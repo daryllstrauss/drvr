@@ -17,6 +17,13 @@ def create_data_dir():
         pass
     return dir
 
+async def benchmark(robot):
+    for _ in range(10):
+        start = datetime.now()
+        await robot.predict()
+        end = datetime.now()
+        print("Delta", end-start)
+
 async def main(robot: Robot) -> None:
     await robot.predict()
     run = True
@@ -60,6 +67,8 @@ async def main(robot: Robot) -> None:
             await robot.next()
         elif cmd == "q" or cmd == "quit":
             run = False
+        elif cmd == "z":
+            await benchmark(robot)
         else:
             print(
                 "(b)attery\n"
