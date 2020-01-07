@@ -11,7 +11,7 @@ from sphero_sdk import DriveFlagsBitmask
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications.inception_v3 import preprocess_input
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
 
 
 class Robot(object):
@@ -69,6 +69,17 @@ class Robot(object):
         result.update(state)
         return result
 
+    def writeFrame(self):
+        self.frame += 1
+        command = {
+            "heading": self.heading,
+            "speed": self.speed,
+            "duration": self.duration,
+            "predictions": self.predictions
+        }
+        with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
+            json.dump(command, file)
+
     async def drive(self) -> None:
         await self.setBusy()
         await self.rvr.drive_with_heading(
@@ -81,14 +92,7 @@ class Robot(object):
             heading=self.heading,
             flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(0.25)
-        command = {
-            "heading": self.heading,
-            "speed": self.speed,
-            "duration": self.duration,
-            "predictions": self.predictions
-        }
-        with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
-            json.dump(command, file)
+        self.writeFrame()
         self.clearBusy()
 
     async def turnTo(self):
@@ -108,6 +112,7 @@ class Robot(object):
             return
         self.heading = self.normalizeHeading(self.heading+delta)
         await self.turnTo()
+        self.writeFrame()
 
     async def snapshot(self, prefix="cam") -> None:
         await self.setBusy()
@@ -116,7 +121,6 @@ class Robot(object):
         self.clearBusy()
 
     async def next(self) -> None:
-        await self.nextFrame()
         await self.predict()
         await self.snapshot()
         await self.altShots()
@@ -134,7 +138,7 @@ class Robot(object):
             target_size=(self.image_height, self.image_width))
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
+        x = mobilenet_preprocess(x)
         input_details = self.interp.get_input_details()
         output_details = self.interp.get_output_details()
         self.interp.set_tensor(input_details[0]['index'], x)
@@ -158,7 +162,6 @@ class Robot(object):
             if photos:
                 await self.next()
             else:
-                await self.nextFrame()
                 await self.position()
                 await self.drive()
         if predict:
@@ -217,9 +220,6 @@ class Robot(object):
             self.speed = self.parseSpeed(speed)
         except Exception:
             pass
-
-    async def nextFrame(self):
-        self.frame += 1
 
     def normalizeHeading(self, heading: int) -> int:
         while heading < 0:

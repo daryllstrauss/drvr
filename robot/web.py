@@ -44,7 +44,6 @@ async def turn_api(request):
 
 async def straight_api(request):
     robot = request.app['robot']
-    await robot.nextFrame()
     await robot.drive()
     return web.Response()
 
