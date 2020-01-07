@@ -16,8 +16,8 @@ CLASSES = 3
 WIDTH = 224
 HEIGHT = 224
 BATCH_SIZE = 32
-EPOCHS = 100
-STEPS_PER_EPOCH = 100
+EPOCHS = 200
+STEPS_PER_EPOCH = 150
 VALIDATION_STEPS = 10
 MODEL_FILE = 'steer.model'
 
@@ -32,7 +32,7 @@ def buildModel(modelFile: str = None, dropout: float = 0.4):
         # for layer in base_model.layers:
         #     layer.trainable = False
         # base_model = InceptionV3(pooling='avg', include_top=False)
-        base_model = MobileNetV2(weights=None, pooling='avg', include_top=False)
+        base_model = MobileNetV2(weights=None, pooling='avg', alpha=0.25, include_top=False)
 
 
     x = Dropout(dropout)(base_model.output)
@@ -45,37 +45,50 @@ def buildModel(modelFile: str = None, dropout: float = 0.4):
     return model
 
 
-def loadLabelledData(dirname: str) -> pd.DataFrame:
-    with open(f"{dirname}/actions.json", "r") as fp:
-        data = json.load(fp)
-    for rec in data:
-        filename = rec['orig']
-        rec['orig'] = f"{dirname}/{filename}"
-        if filename[:3] == "cam":
-            rec['result'] = 's'
-        elif filename[:4] == "neg-":
-            rec['result'] = 'r'
-        elif filename[:3] == "neg":
-            rec['result'] = 'l'
-        else:
-            continue
-    return pd.DataFrame(data)
+def defaultLabels(name):
+    if name[-4:] != ".png" and name[-4:] != ".jpg":
+        return None
+    if name[:3] == "cam":
+        return 's'
+    elif name[:6] == "neg-10":
+        return None
+    elif name[:5] == "neg10":
+        return None
+    elif name[:4] == "neg-":
+        return 'r'
+    elif name[:3] == "neg":
+        return 'l'
+    return None
+
+def allLeftLabels(name):
+    if name[-4:] != ".png" and name[-4:] != ".jpg":
+        return None
+    if name[:3] == "cam":
+        return 'l'
+    elif name[:4] == "neg-":
+        return 'l'
+    elif name[:3] == "neg":
+        return 'l'
+    return None    
 
 
 def loadData(dirnames:[str]) -> pd.DataFrame:
     result = []
     for d in dirnames:
+        if os.access(f"{d}/train.json", os.R_OK):
+            with open(f"{d}/train.json", "r") as fp:
+                train = json.load(fp)
+        else:
+            train = {
+                "method": "default"
+            }
         files = os.listdir(d)
         for f in files:
-            if f[-4:] == ".png" or f[-4:] == ".jpg":
-                if f[:3] == "cam":
-                    action = 's'
-                elif f[:4] == "neg-":
-                    action = 'r'
-                elif f[:3] == "neg":
-                    action = 'l'
-                else:
-                    continue
+            if train["method"] == "default":
+                action = defaultLabels(f)
+            elif train["method"] == "allLeft":
+                action = allLeftLabels(f)
+            if action is not None:
                 result.append({
                     "orig": f"{d}/{f}",
                     "result": action
@@ -89,7 +102,7 @@ def train(model, dataset, split, savefile):
         # height_shift_range=0.1,
         brightness_range=(0.8, 1.2),
         channel_shift_range=0.1,
-        preprocessing_function=inception_preprocess,
+        preprocessing_function=mobilenet_preprocess,
         validation_split=split,
         fill_mode='nearest')
 
@@ -156,7 +169,7 @@ def plot_training(history):
 
 def main(datadirs: [str]) -> None:
     # model = buildModel(modelFile="good/weights-improvement-53-0.93.hdf5")
-    model = buildModel(dropout=0.4)
+    model = buildModel(dropout=0.5)
     data = loadData(datadirs)
     history = train(model, data, 0.2, MODEL_FILE)
     # plot_training(history)
