@@ -69,12 +69,12 @@ class Robot(object):
         result.update(state)
         return result
 
-    def writeFrame(self):
+    def writeFrame(self, speed, duration):
         self.frame += 1
         command = {
             "heading": self.heading,
-            "speed": self.speed,
-            "duration": self.duration,
+            "speed": speed,
+            "duration": duration,
             "predictions": self.predictions
         }
         with open(f"{self.datadir}/command-{self.frame:04}.json", "w") as file:
@@ -92,7 +92,7 @@ class Robot(object):
             heading=self.heading,
             flags=DriveFlagsBitmask.none.value)
         await asyncio.sleep(0.25)
-        self.writeFrame()
+        self.writeFrame(self.speed, self.duration)
         self.clearBusy()
 
     async def turnTo(self):
@@ -112,7 +112,7 @@ class Robot(object):
             return
         self.heading = self.normalizeHeading(self.heading+delta)
         await self.turnTo()
-        self.writeFrame()
+        self.writeFrame(0, 0)
 
     async def snapshot(self, prefix="cam") -> None:
         await self.setBusy()
