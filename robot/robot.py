@@ -162,7 +162,7 @@ class Robot(object):
             if photos:
                 await self.next()
             else:
-                await self.position()
+                # await self.position()
                 await self.drive()
         if predict:
             await self.predict()

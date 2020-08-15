@@ -17,8 +17,8 @@ WIDTH = 224
 HEIGHT = 224
 BATCH_SIZE = 32
 EPOCHS = 200
-STEPS_PER_EPOCH = 150
-VALIDATION_STEPS = 10
+STEPS_PER_EPOCH = 175
+VALIDATION_STEPS = 25
 MODEL_FILE = 'steer.model'
 
 
@@ -65,10 +65,21 @@ def allLeftLabels(name):
         return None
     if name[:3] == "cam":
         return 'l'
-    elif name[:4] == "neg-":
-        return 'l'
+    elif name[:6] == "neg-30":
+        return 's'
     elif name[:3] == "neg":
         return 'l'
+    return None
+
+def allRightLabels(name):
+    if name[-4:] != ".png" and name[-4:] != ".jpg":
+        return None
+    if name[:3] == "cam":
+        return 'r'
+    elif name[:5] == "neg30":
+        return 's'
+    elif name[:3] == "neg":
+        return 'r'
     return None    
 
 
@@ -78,16 +89,17 @@ def loadData(dirnames:[str]) -> pd.DataFrame:
         if os.access(f"{d}/train.json", os.R_OK):
             with open(f"{d}/train.json", "r") as fp:
                 train = json.load(fp)
+            if train["method"] == "default":
+                actionFunc = defaultLabels
+            elif train["method"] == "allLeft":
+                actionFunc = allLeftLabels
+            elif train["method"] == "allRight":
+                actionFunc = allRightLabels
         else:
-            train = {
-                "method": "default"
-            }
+            actionFunc = defaultLabels
         files = os.listdir(d)
         for f in files:
-            if train["method"] == "default":
-                action = defaultLabels(f)
-            elif train["method"] == "allLeft":
-                action = allLeftLabels(f)
+            action = actionFunc(f)
             if action is not None:
                 result.append({
                     "orig": f"{d}/{f}",
