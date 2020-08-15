@@ -61,7 +61,7 @@ scipy==1.3.2
 six==1.13.0
 -e git+https://github.com/sphero-inc/sphero-sdk-raspberrypi-python.git@33645927d5a19796eea495e85e3f692d55e14b34#egg=sphero_sdk
 tensorboard==2.0.1
-tensorflow==2.0.0
+tensorflow==2.0.1
 tensorflow-estimator==2.0.1
 termcolor==1.1.0
 tqdm==4.39.0
