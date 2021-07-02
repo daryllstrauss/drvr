@@ -8,7 +8,7 @@ import { RobotService } from './robot.service';
     styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-    public battery = {};
+    public battery: any = {};
     private prevIndex = -1;
     private prevPredictions: any = [0, 0, 0];
     public predictions: any = [0, 0, 0];
