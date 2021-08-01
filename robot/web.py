@@ -3,14 +3,14 @@ import asyncio
 from aiohttp import web
 import aiohttp_mako
 from robotv2 import RobotV2
-# from operationsv1 import OperationsV1
-from dummyops import DummyOperations
+from operationsv1 import OperationsV1
+# from dummyops import DummyOperations
 
 async def server(robot: RobotV2):
     app = web.Application()
     app['robot'] = robot
-    # ops = OperationsV1()
-    ops = DummyOperations()
+    ops = OperationsV1()
+    # ops = DummyOperations()
     ops.register(app)
     lookup = aiohttp_mako.setup(
         app,

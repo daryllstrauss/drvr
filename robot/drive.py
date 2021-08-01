@@ -11,9 +11,9 @@ from web import server
 
 def create_data_dir():
     now = datetime.now()
-    dir = "data-"+format(now, "%Y%m%d-%H%M%S")
+    dir = "../data/data-"+format(now, "%Y%m%d-%H%M%S")
     try:
-        os.mkdir(dir)
+        os.makedirs(dir)
     except OSError:
         pass
     return dir
@@ -34,34 +34,86 @@ def getNum(s):
 
 async def main(robot: RobotV2) -> None:
     run = True
-    print("Command [bpdstgnqh]: ")
+    auto = False
+    hasPredict = False
+    cnt = 0
+    # Let the camera agc/focus initialize
+    while cnt < 10:
+        robot.predict(False)
+        cnt += 1
+    cmdstr = "Command [abcpdlgrstgnqhz]: "
+    print(cmdstr)
     while run:
+        if hasPredict is False:
+            await robot.predict(True)
+            hasPredict = True
         try:
             if not select.select([sys.stdin,],[],[],0.0)[0]:
-                await asyncio.sleep(1)
+                if auto:
+                    await robot.next()
+                    hasPredict = False
+                else:
+                    await asyncio.sleep(0.25)
                 continue
             cmd = input()
+            # await asyncio.sleep(1)
         except Exception:
-            await asyncio.sleep(3600)
+            print("Input exception", flush=True)
+            await asyncio.sleep(30)
             continue
-        if cmd == "b" or cmd == "battery":
+        hasPredict = False
+        if cmd == "":
+            if auto:
+                auto = False
+            else:
+                await robot.next()
+        elif cmd == "a":
+            auto = not auto
+            print("Autopilot", auto)
+        elif cmd == "b" or cmd == "battery":
             bat = await robot.battery()
             print('Battery percentage: ', bat["percentage"])
             print('Voltage state: ', bat["state"])
-        elif cmd == "p" or cmd == "picture":
-            await robot.snapshot()
+        elif cmd == "c":
+            print(f"turnStep ({robot.turnStep})")
+            tsval = input()
+            print(f"moveStep ({robot.moveStep})")
+            msval = input()
+            print(f"Target Distance ({robot.normalOffset})")
+            noff = input()
+            print(f"Min Left Range ({robot.minDist})")
+            mind = input()
+            print(f"Max Left Range ({robot.maxDist})")
+            maxd = input()
+            try:
+                robot.turnStep = int(tsval)
+                robot.moveStep = float(msval)
+                robot.normalOffset = int(noff)
+                robot.minDist = int(mind)
+                robot.maxDist = int(maxd)
+            except:
+                print("Invalid number")
         elif cmd == "d" or cmd == "drive":
-            await robot.drive()
-        elif cmd[0] == "s":
-            num = getNum(cmd[1:])
-            await robot.setSpeed(num)
-        elif cmd[0] == "t":
-            num = getNum(cmd[1:])
-            await robot.turn(num)
+            await robot.drive(0.5)
         elif cmd[0] == "l":
             await robot.turn(-10)
+        elif cmd == "n" or cmd == "next":
+            await robot.next()
+        elif cmd == "p" or cmd == "picture":
+            await robot.snapshot()
+        elif cmd == "q" or cmd == "quit":
+            await robot.shutdown()
+            run = False
         elif cmd[0] == "r":
             await robot.turn(10)
+        elif cmd[0] == "s":
+            amt = input()
+            num = getNum(amt)
+            await robot.setSpeed(num)
+        elif cmd[0] == "t":
+            amt = input()
+            num = getNum(amt)
+            await robot.turn(num)
         elif cmd == "g" or cmd == "gps":
             pos = await robot.position()
             if pos:
@@ -76,28 +128,22 @@ async def main(robot: RobotV2) -> None:
                     pos.get('climb', 'nan'), "\t")
             else:
                 print(None)
-        elif cmd == "n" or cmd == "next":
-            await robot.next()
-        elif cmd == "q" or cmd == "quit":
-            await robot.shutdown()
-            run = False
         elif cmd == "z":
             await benchmark(robot)
         else:
             print(
                 "(b)attery\n"
                 "(p)icture\n"
-                "(d)drive\n"
+                f"(d)drive {robot.moveStep}\n"
                 "(s)peed\n"
-                "(l)left 10\n"
-                "(r)ight 10\n"
+                f"(l)left {robot.turnStep}\n"
+                f"(r)ight {robot.turnStep}\n"
                 "(t)urn\n"
                 "(g)ps\n"
                 "(n)ext\n"
                 "(h)elp\n"
                 "(q)uit")
-        print("Command [bpdstgnqh]: ")
-
+        print(cmdstr)
 
 def mainloop() -> None:
     loop = asyncio.get_event_loop()

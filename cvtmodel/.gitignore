@@ -1,0 +1,5 @@
+# Temporary files
+segmentation_model*
+segmentation.*
+out.png
+test.png

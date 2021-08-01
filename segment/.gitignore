@@ -1,0 +1,4 @@
+# Tensorflow temporary
+tensorboard
+segmentation_model
+segmentation_weights.h5

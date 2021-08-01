@@ -1,8 +1,8 @@
 #!/bin/sh
 
 echo DRVR
-cd /home/pi/robot
-venv=/home/pi/.local/share/virtualenvs/pi-V9tpwFal
+cd /home/daryll/src/robot
+venv=/home/daryll/src/robot/.venv
 echo VENV: $venv
 . $venv/bin/activate
 python drive.py

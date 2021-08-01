@@ -37,6 +37,16 @@ class Dataset:
         self.num_classes = num_classes
 
         num_images = len(self.ids)
+        failFiles = False
+        for i in range(num_images):
+            if not os.path.exists(self.images_fps[i]):
+                print("Image", self.images_fps[i], "doesn't exist")
+                failFiles = True
+            if not os.path.exists(self.masks_fps[i]):
+                print("Mask", self.masks_fps[i], "doesn't exist")
+                failFiles = True
+        if failFiles:
+            raise Exception("Missing files")
         print("Dataset contains ",  num_images)
         indexes = [x for x in range(num_images)]
         indexes = np.random.permutation(indexes)

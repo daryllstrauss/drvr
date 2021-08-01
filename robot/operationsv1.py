@@ -35,7 +35,7 @@ class OperationsV1(object):
             "frame": robot.frame,
             "battery": bat,
             "position": pos,
-            "predictions": robot.predictions}
+            "predictions": robot.prediction}
         return result
 
     @staticmethod
@@ -58,7 +58,7 @@ class OperationsV1(object):
         robot = request.app['robot']
         data = await request.json()
         amount = data['amount']
-        await robot.turn("t"+str(amount))
+        await robot.turn(amount)
         return web.Response()
 
     @staticmethod
@@ -136,8 +136,8 @@ class OperationsV1(object):
     @staticmethod
     async def predict(request):
         robot = request.app['robot']
-        await robot.predict()
-        return web.json_response(robot.predictions)
+        prediction = await robot.predict()
+        return web.json_response(prediction)
 
     @staticmethod
     async def halt(request):
