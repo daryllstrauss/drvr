@@ -1,6 +1,8 @@
 import os
-import cv2
 import time
+from sphero_sdk.common.commands.drive import drive_with_heading
+import cv2
+import math
 import asyncio
 from sphero_sdk import SpheroRvrAsync, SerialAsyncDal, DriveFlagsBitmask, SpheroRvrTargets
 from predict import OakD
@@ -110,16 +112,22 @@ class RobotV2(object):
                 predictions[y][x] = max
         return predictions
 
-    def createTagImage(self, predictions, label=""):
-        font = cv2.FONT_HERSHEY_SIMPLEX
+    def createTagImage(self, predictions):
         colors = [[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [0, 255, 255], [255, 0, 255], [255, 255, 0], [255, 255, 255]]
         image = np.zeros((predictions.shape[0], predictions.shape[1], 3), dtype=np.uint8)
         for y in range(predictions.shape[0]):
             for x in range(predictions.shape[1]):
                 image[y][x] = colors[predictions[y][x]]
-        cv2.putText(image, label, (predictions.shape[1]-30, 30), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         return image
+    
+    def scanColumn(self, data, start, type, width=10):
+        for y in range(start, -1, -1):
+            for x in range(0, width):
+                if data[y][x] != type and data[y][x] != 0:
+                    break
+            return y
+        return -1
 
     def scanRow(self, data, row, type, width=100):
         w = data.shape[1]
@@ -130,47 +138,58 @@ class RobotV2(object):
                 stopX = min(x + width, w-1)
                 widthMet = True
                 for x1 in range(x+1, stopX):
-                    if data[row][x1] != type:
+                    if data[row][x1] != type and data[row][x1] != 0:
                         widthMet = False
                         break
                 if widthMet or stopX == w-1:
                     minx = x
                     break
         maxx = -1
-        for x in range(w-1, -1, -1):
-            if data[row][x] == type:
-                stop = max(x - width, 0)
-                widthMet = True
-                for x1 in range(x-1, stop, -1):
-                    if data[row][x1] != type:
-                        widthMet = False
-                        break
-                if widthMet or stop == 0:
-                    maxx = x
-                    break
+        # for x in range(w-1, -1, -1):
+        #     if data[row][x] == type:
+        #         stop = max(x - width, 0)
+        #         widthMet = True
+        #         for x1 in range(x-1, stop, -1):
+        #             if data[row][x1] != type and data[row][x1] != 0:
+        #                 widthMet = False
+        #                 break
+        #         if widthMet or stop == 0:
+        #             maxx = x
+        #             break
         return (minx, maxx)
 
     # Robot after move trapazoid
     # (35, 35) (190, 35)
     # (5, 0), (220, 0)
     def analyze(self, data):
-        offset = self.normalOffset
-        while offset > 0:
-            ty = data.shape[0] - offset
+        ty = self.scanColumn(data, data.shape[0] - self.normalOffset, 1)
+        if ty == -1:
+            print("Force left no reference")
+            self.heading = (self.heading - 10) % 360
+            return "S"
+        while ty > 0:
             (minPath, _maxPath) = self.scanRow(data, ty, 1)
             if minPath == -1:
-                offset -= 5
+                ty -= 5
+            # elif minPath > data.shape[1]/2: 
+            #     print("Force left seeing right edge")
+            #     self.heading = (self.heading - 10) % 360
+            #     return "S"
             else:
                 break
-        self.currentOffset = offset
+        if ty <= 0:
+            print("Force right no path in front")
+            self.heading = (self.heading + 10) % 360
+            return "S"
+        self.currentOffset = ty
 
-        if minPath < self.minDist:
-            print("Left")
-            return "L"
-        elif minPath > self.maxDist:
-            print("Right")
-            return "R"
-        print("Straight")
+        tx = self.minDist + (self.maxDist - self.minDist)/2
+        offset = ty + 50 # Estimate of distance we'll move forward
+        ang = math.atan((minPath - tx) / offset) / (2 * math.pi) * 360
+        print("Ang", minPath, tx, offset, ang)
+        prev = self.heading
+        self.heading = int(self.heading + ang) % 360
+        print(f"Header: {prev} to {self.heading}")
         return "S"
 
     async def predict(self, writeImage=False):
@@ -178,25 +197,36 @@ class RobotV2(object):
         predictions = self.createPredictions(results)
         self.prediction = self.analyze(predictions)
         if writeImage:
-            image = self.createTagImage(predictions, self.prediction)
+            await self.snapshot()
+            image = self.createTagImage(predictions)
             h = image.shape[0]
             w = image.shape[1]
-            ty = h - self.currentOffset
+            tx = int(self.minDist + (self.maxDist - self.minDist)/2)
+            ty = self.currentOffset
+            print("TY", ty)
             cv2.line(image, (0, ty), (w-1, ty), (255, 255, 255), 1)
-            cv2.line(image, (self.minDist, 0), (self.minDist, h-1), (255, 255, 255), 1)
-            cv2.line(image, (self.maxDist, 0), (self.maxDist, h-1), (255, 255, 255), 1)
-            name = f"{self.datadir}/predict-{str(self.frame).zfill(5)}.png"
+            cv2.line(image, (tx, 0), (tx, h-1), (255, 255, 255), 1)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(
+                image,
+                f"{int(self.heading)}",
+                (predictions.shape[1]-60, 30),
+                font,
+                1,
+                (255, 255, 255),
+                1,
+                cv2.LINE_AA)
+            name = f"{self.datadir}/predict-{str(self.frame).zfill(5)}.jpg"
             cv2.imwrite(name, image)
         return self.prediction
 
     async def snapshot(self):
         rgb = self.oakD.getRGB()
-        name = f"{self.datadir}/rgb-{str(self.frame).zfill(5)}.png"
+        name = f"{self.datadir}/rgb-{str(self.frame).zfill(5)}.jpg"
         cv2.imwrite(name, rgb)
         self.frame += 1
 
     async def next(self):
-        await self.snapshot()
         if self.prediction == "L":
             await self.turn(-self.turnStep)
         elif self.prediction == "R":
@@ -206,3 +236,11 @@ class RobotV2(object):
     
     async def position(self):
         pass
+
+    async def benchmark(self):
+        start = time.time()
+        count = 100
+        for x in range(count):
+            await self.predict()
+        end = time.time()
+        print(f"{count} preidctions in {(end-start)/count} seconds")

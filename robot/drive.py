@@ -39,7 +39,7 @@ async def main(robot: RobotV2) -> None:
     cnt = 0
     # Let the camera agc/focus initialize
     while cnt < 10:
-        robot.predict(False)
+        await robot.predict(False)
         cnt += 1
     cmdstr = "Command [abcpdlgrstgnqhz]: "
     print(cmdstr)
@@ -97,6 +97,10 @@ async def main(robot: RobotV2) -> None:
             await robot.drive(0.5)
         elif cmd[0] == "l":
             await robot.turn(-10)
+            prev = robot.heading
+            await robot.predict()
+            hasPredict = True
+            robot.heading = prev
         elif cmd == "n" or cmd == "next":
             await robot.next()
         elif cmd == "p" or cmd == "picture":
@@ -106,6 +110,10 @@ async def main(robot: RobotV2) -> None:
             run = False
         elif cmd[0] == "r":
             await robot.turn(10)
+            prev = robot.heading
+            await robot.predict()
+            hasPredict = True
+            robot.heading = prev
         elif cmd[0] == "s":
             amt = input()
             num = getNum(amt)
