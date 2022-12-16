@@ -1,0 +1,44 @@
+ekf_odom:
+  ros__parameters:
+    frequency: 10.0
+    sensor_timeout: 0.2
+    two_d_mode: True
+    publish_tf: True
+    map_frame: "map"
+    odom_frame: "odom"
+    base_link_frame: "base_link"
+    world_frame: "odom"
+    odom0: "odom"
+    odom0_config: [
+      False, False, False,  # X, Y, Z
+      True, True, True,     # Roll Pitch Yaw
+      True, True, True,     # Velocity: X, Y, Z
+      False, False, False,  # delta Roll Pitch Yaw
+      False, False, False]  # Acceleration: X, Y, Z
+
+ekf_map:
+  ros__parameters:
+    frequency: 10.0
+    sensor_timeout: 0.2
+    two_d_mode: True
+    publish_tf: True
+    map_frame: "map"
+    odom_frame: "odom"
+    base_link_frame: "base_link"
+    world_frame: "map"
+    odom0: "odom"
+    odom0_config: [
+      False, False, False,  # X, Y, Z
+      True, True, True,     # Roll Pitch Yaw
+      True, True, True,     # Velocity: X, Y, Z
+      False, False, False,  # delta Roll Pitch Yaw
+      False, False, False]  # Acceleration: X, Y, Z
+
+    pose0: "initialpose"
+    pose0_config: [
+      True, True, True,     # X, Y, Z
+      False, False, False,  # Roll Pitch Yaw
+      False, False, False,  # Velocity: X, Y, Z
+      False, False, False,  # delta Roll Pitch Yaw
+      False, False, False   # Acceleration: X, Y, Z
+    ]

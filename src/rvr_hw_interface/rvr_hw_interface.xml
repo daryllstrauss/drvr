@@ -1,0 +1,7 @@
+  <library path="rvr_hw_interface">
+    <class name="rvr_hw_interface/RVRInterface" type="rvr_hw_interface::RVRInterface" base_class_type="hardware_interface::SystemInterface">
+      <description>
+        Hardware interface to the Sphero RVR
+      </description>
+    </class>
+  </library>
